@@ -92,7 +92,13 @@ const sendMessage = async (phone, message) => {
       chatId = `${formattedPhone}@c.us`;
     }
 
-    await client.sendMessage(chatId, message);
+    // Wrap client.sendMessage with a 20-second timeout to prevent indefinite hanging
+    const sendPromise = client.sendMessage(chatId, message);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('WhatsApp send request timed out after 20 seconds')), 20000)
+    );
+
+    await Promise.race([sendPromise, timeoutPromise]);
     console.log(`✅ WhatsApp message sent to ${formattedPhone}`);
   } catch (err) {
     console.error(`❌ WhatsApp send failed to ${phone}:`, err.message);
