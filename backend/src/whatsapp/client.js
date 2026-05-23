@@ -76,7 +76,10 @@ const sendMessage = async (phone, message) => {
 
   try {
     // Format the phone number to E.164 and suffix with @c.us for whatsapp-web.js
-    const formattedPhone = phone.replace(/\D/g, '');
+    let formattedPhone = phone.replace(/\D/g, '');
+    if (formattedPhone.length === 10) {
+      formattedPhone = '91' + formattedPhone;
+    }
     
     let chatId;
     try {
