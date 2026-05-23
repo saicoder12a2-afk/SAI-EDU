@@ -4,6 +4,7 @@ const express = require('express');
 const path    = require('path');
 const cors    = require('cors');
 const { initDatabase }  = require('./src/db/database');
+const { initializeWhatsApp } = require('./src/whatsapp/client');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -82,6 +83,9 @@ app.use((err, _req, res, _next) => {
   console.log('⏳ Initializing database...');
   await initDatabase();
   console.log('✅ Database ready.\n');
+
+  // ─── Init WhatsApp ────────────────────────────────────────────────────────
+  initializeWhatsApp();
 
   // ─── Start server ─────────────────────────────────────────────────────────
   app.listen(PORT, () => {

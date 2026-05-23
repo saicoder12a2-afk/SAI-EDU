@@ -2,20 +2,23 @@ const { getStatus } = require('../whatsapp/client');
 
 // GET /api/whatsapp/status
 const getWhatsAppStatus = (req, res) => {
-  const { isReady } = getStatus();
+  const { isReady, hasClient, isInitializing } = getStatus();
 
   let statusMessage;
   let statusCode;
 
   if (isReady) {
-    statusMessage = 'Meta WhatsApp API is configured and ready.';
+    statusMessage = 'WhatsApp is connected and ready to send messages.';
     statusCode    = 'connected';
+  } else if (isInitializing) {
+    statusMessage = 'WhatsApp client is initializing. Please check the backend console for the QR code.';
+    statusCode    = 'initializing';
   } else {
-    statusMessage = 'Meta API credentials missing. Please set META_WA_PHONE_NUMBER_ID and META_WA_ACCESS_TOKEN.';
+    statusMessage = 'WhatsApp client is disconnected or not ready. Please scan the QR code in the server console.';
     statusCode    = 'disconnected';
   }
 
-  res.json({ isReady, hasClient: isReady, isInitializing: false, statusCode, statusMessage });
+  res.json({ isReady, hasClient, isInitializing, statusCode, statusMessage });
 };
 
 module.exports = { getWhatsAppStatus };

@@ -1,78 +1,87 @@
-const axios = require('axios');
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+
+let isWhatsAppReady = false;
+let client = null;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getMetaErrorDetail = (err) => {
-  const fbError = err?.response?.data?.error;
-  if (fbError) {
-    if (typeof fbError === 'string') {
-      return fbError;
-    }
-    if (fbError.error_user_msg) {
-      return fbError.error_user_msg;
-    }
-    if (fbError.message) {
-      return fbError.message;
-    }
-    const detailParts = [];
-    if (fbError.type) {
-      detailParts.push(`type=${fbError.type}`);
-    }
-    if (fbError.code) {
-      detailParts.push(`code=${fbError.code}`);
-    }
-    if (fbError.error_subcode) {
-      detailParts.push(`subcode=${fbError.error_subcode}`);
-    }
-    if (fbError.fbtrace_id) {
-      detailParts.push(`fbtrace_id=${fbError.fbtrace_id}`);
-    }
-    if (detailParts.length) {
-      return `${detailParts.join(', ')}${fbError.message ? ` — ${fbError.message}` : ''}`;
-    }
-    return JSON.stringify(fbError);
-  }
-  return err?.response?.data?.message || err?.message || String(err);
+const initializeWhatsApp = () => {
+  console.log('🔄 Initializing WhatsApp client...');
+
+  client = new Client({
+    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
+    puppeteer: {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+      // If deployed in an environment like Railway where CHROMIUM_BIN is set, use it.
+      executablePath: process.env.CHROMIUM_BIN || process.env.PUPPETEER_EXECUTABLE_PATH || null,
+    },
+  });
+
+  client.on('qr', (qr) => {
+    console.log('\n📱 Scan this QR code with WhatsApp:\n');
+    qrcode.generate(qr, { small: true });
+    console.log('\n👉 Open WhatsApp → Settings → Linked Devices → Link a Device\n');
+  });
+
+  client.on('ready', () => {
+    isWhatsAppReady = true;
+    console.log('✅ WhatsApp is connected and ready!');
+  });
+
+  client.on('authenticated', () => {
+    console.log('🔐 Session authenticated (saved for next time)');
+  });
+
+  client.on('auth_failure', (msg) => {
+    console.error('❌ Authentication failed:', msg);
+    console.log('💡 Try deleting the .wwebjs_auth folder and scanning again.');
+  });
+
+  client.on('disconnected', (reason) => {
+    isWhatsAppReady = false;
+    console.log('❌ WhatsApp disconnected:', reason);
+    console.log('🔄 Reconnecting in 10 seconds...');
+    setTimeout(() => {
+      client.initialize().catch(err => console.error('Error re-initializing WhatsApp:', err));
+    }, 10000);
+  });
+
+  client.initialize().catch(err => {
+    console.error('❌ Failed to initialize WhatsApp client:', err);
+  });
 };
 
 /**
- * Send a WhatsApp message using the Official Meta Cloud API.
- * Requires META_WA_PHONE_NUMBER_ID and META_WA_ACCESS_TOKEN in env.
+ * Send a WhatsApp message using whatsapp-web.js.
  */
 const sendMessage = async (phone, message) => {
-  const phoneId = process.env.META_WA_PHONE_NUMBER_ID;
-  const token = process.env.META_WA_ACCESS_TOKEN;
-
-  if (!phoneId || !token) {
-    console.error('⚠️ Meta WhatsApp API credentials missing. Message not sent.');
-    throw new Error('WhatsApp API not configured');
+  if (!isWhatsAppReady || !client) {
+    console.error('⚠️ WhatsApp client is not ready. Message not sent.');
+    throw new Error('WhatsApp client not ready');
   }
 
-  const formattedPhone = phone.replace(/\D/g, '');
-  const url = `https://graph.facebook.com/v17.0/${phoneId}/messages`;
-
   try {
-    await axios.post(
-      url,
-      {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: formattedPhone,
-        type: 'text',
-        text: { preview_url: false, body: message },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    console.log(`✅ Meta WhatsApp message sent to ${formattedPhone}`);
+    // Format the phone number to E.164 and suffix with @c.us for whatsapp-web.js
+    const formattedPhone = phone.replace(/\D/g, '');
+    const numberId = await client.getNumberId(formattedPhone);
+    
+    if (!numberId) {
+      throw new Error(`Phone ${phone} is not registered on WhatsApp.`);
+    }
+
+    const chatId = numberId._serialized;
+    await client.sendMessage(chatId, message);
+    console.log(`✅ WhatsApp message sent to ${formattedPhone}`);
   } catch (err) {
-    const errorDetail = getMetaErrorDetail(err);
-    console.error(`❌ Meta WhatsApp send failed to ${formattedPhone}:`, errorDetail);
-    throw new Error(`WhatsApp API Error: ${errorDetail}`);
+    console.error(`❌ WhatsApp send failed to ${phone}:`, err.message);
+    throw new Error(`WhatsApp API Error: ${err.message}`);
   }
 };
 
@@ -87,11 +96,12 @@ const sendMessageWithRetry = async (phone, message, options = {}) => {
       await sendMessage(phone, message);
       return { success: true, attempts: attempt + 1 };
     } catch (err) {
-      lastError = getMetaErrorDetail(err);
+      lastError = err.message;
       attempt += 1;
       if (attempt > maxRetries) {
         break;
       }
+      console.log(`    🔄 Retry ${attempt}/${maxRetries} for ${phone} in ${retryDelay / 1000}s — ${lastError}`);
       await sleep(retryDelay);
     }
   }
@@ -104,15 +114,15 @@ const sendMessageWithRetry = async (phone, message, options = {}) => {
 };
 
 const getStatus = () => {
-  const hasCreds = !!(process.env.META_WA_PHONE_NUMBER_ID && process.env.META_WA_ACCESS_TOKEN);
   return {
-    isReady: hasCreds,
-    hasClient: hasCreds,
-    isInitializing: false,
+    isReady: isWhatsAppReady,
+    hasClient: !!client,
+    isInitializing: !!client && !isWhatsAppReady,
   };
 };
 
 module.exports = {
+  initializeWhatsApp,
   sendMessage,
   sendMessageWithRetry,
   getStatus,
