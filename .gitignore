@@ -1,2 +1,14 @@
 node_modules/
 package-lock.json
+
+# Local backend secrets and caches
+backend/.env
+backend/.wwebjs_auth/
+backend/.wwebjs_cache/
+backend/data/
+
+# Local frontend build output
+frontend/dist/
+
+# Local workflow logs
+workflow_logs.zip
