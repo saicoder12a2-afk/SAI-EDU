@@ -358,7 +358,10 @@ const openStudentModal = (navigate, teacher) => {
     if (!parent_name) { showToast('Parent name is required.', 'warning'); document.getElementById('sf-parent-name').focus(); return; }
     if (!parent_whatsapp) { showToast('WhatsApp number is required.', 'warning'); document.getElementById('sf-phone').focus(); return; }
 
-    const cleanPhone = parent_whatsapp.replace(/\D/g, '');
+    let cleanPhone = parent_whatsapp.replace(/\D/g, '');
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone;
+    }
     if (cleanPhone.length < 10) {
       showToast('Please enter a valid WhatsApp number (at least 10 digits).', 'warning');
       document.getElementById('sf-phone').focus();

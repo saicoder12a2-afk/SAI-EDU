@@ -89,7 +89,10 @@ const createStudent = async (req, res) => {
   }
 
   // Sanitize WhatsApp number — digits only
-  const cleanPhone = parent_whatsapp.replace(/\D/g, '');
+  let cleanPhone = parent_whatsapp.replace(/\D/g, '');
+  if (cleanPhone.length === 10) {
+    cleanPhone = '91' + cleanPhone;
+  }
   if (cleanPhone.length < 10) {
     return res.status(400).json({ error: 'Please enter a valid WhatsApp number (at least 10 digits).' });
   }
@@ -160,7 +163,10 @@ const updateStudent = async (req, res) => {
     return res.status(400).json({ error: 'Parent name is required.' });
   }
 
-  const cleanPhone = parent_whatsapp.replace(/\D/g, '');
+  let cleanPhone = parent_whatsapp.replace(/\D/g, '');
+  if (cleanPhone.length === 10) {
+    cleanPhone = '91' + cleanPhone;
+  }
   if (cleanPhone.length < 10) {
     return res.status(400).json({ error: 'Please enter a valid WhatsApp number (at least 10 digits).' });
   }
