@@ -9,12 +9,12 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 RUN mkdir -p /app/backend /app/frontend
 
 # Copy and install backend dependencies
-COPY backend/package.json backend/package-lock.json ./backend/
-RUN cd backend && npm ci --production
+COPY backend/package.json ./backend/
+RUN cd backend && npm install --production
 
 # Copy and install frontend dependencies
-COPY frontend/package.json frontend/package-lock.json ./frontend/
-RUN cd frontend && npm ci
+COPY frontend/package.json ./frontend/
+RUN cd frontend && npm install
 
 # Remove build tools after dependencies are installed to keep the image smaller.
 RUN apt-get purge -y --auto-remove python3 make g++ && rm -rf /var/lib/apt/lists/*

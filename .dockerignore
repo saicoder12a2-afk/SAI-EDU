@@ -5,6 +5,8 @@ frontend/dist
 backend/data
 backend/.wwebjs_auth
 backend/.wwebjs_cache
+backend/.env
+frontend/.env
 local-whatsapp
 .git
 .gitignore
