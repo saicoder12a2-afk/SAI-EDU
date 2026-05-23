@@ -52,10 +52,6 @@ export const renderLogin = (navigate) => {
             Sign In
           </button>
         </form>
-
-        <p style="text-align:center;margin-top:24px;font-size:.78rem;color:var(--text-3);">
-          Admin: srikanth@dream.com / teacher123
-        </p>
       </div>
     </div>
   `;
