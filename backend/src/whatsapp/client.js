@@ -77,13 +77,21 @@ const sendMessage = async (phone, message) => {
   try {
     // Format the phone number to E.164 and suffix with @c.us for whatsapp-web.js
     const formattedPhone = phone.replace(/\D/g, '');
-    const numberId = await client.getNumberId(formattedPhone);
     
-    if (!numberId) {
-      throw new Error(`Phone ${phone} is not registered on WhatsApp.`);
+    let chatId;
+    try {
+      const numberId = await client.getNumberId(formattedPhone);
+      if (numberId) {
+        chatId = numberId._serialized;
+      } else {
+        console.warn(`⚠️ getNumberId returned null for ${formattedPhone}. Falling back to direct formatting.`);
+        chatId = `${formattedPhone}@c.us`;
+      }
+    } catch (checkErr) {
+      console.warn(`⚠️ getNumberId failed for ${formattedPhone}: ${checkErr.message}. Falling back to direct formatting.`);
+      chatId = `${formattedPhone}@c.us`;
     }
 
-    const chatId = numberId._serialized;
     await client.sendMessage(chatId, message);
     console.log(`✅ WhatsApp message sent to ${formattedPhone}`);
   } catch (err) {
