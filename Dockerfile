@@ -5,28 +5,24 @@ WORKDIR /app
 # Install build tools required for native modules like better-sqlite3.
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-# Prepare directories for dependency installation
-RUN mkdir -p /app/backend /app/frontend
+# Copy entire backend and frontend directories early to ensure all files are available
+COPY backend ./backend
+COPY frontend ./frontend
 
-# Copy and install backend dependencies
-COPY backend/package.json ./backend/
+# Install backend dependencies
 RUN cd backend && npm install --production
 
-# Copy and install frontend dependencies
-COPY frontend/package.json ./frontend/
+# Install frontend dependencies
 RUN cd frontend && npm install
 
 # Remove build tools after dependencies are installed to keep the image smaller.
 RUN apt-get purge -y --auto-remove python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-# Copy all source code (cache bust: v3)
-COPY . .
-
 # Build frontend
 RUN cd frontend && npm run build
 
 # Create data directory for SQLite fallback
-RUN mkdir -p /app/backend/data
+RUN mkdir -p ./backend/data
 
 WORKDIR /app/backend
 
