@@ -148,6 +148,115 @@ const historyTableHTML = (records) => {
   `;
 };
 
+// ─── WhatsApp QR Modal HTML ──────────────────────────────────────────────────
+const qrModalHTML = (qrCode = null) => {
+  const qrImage = qrCode 
+    ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}" alt="Scan this QR code with WhatsApp" style="display:block; margin:0 auto; width:220px; height:220px; border-radius: 8px; border: 4px solid var(--accent-1);" />`
+    : `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:220px; color:var(--text-2);">
+        <span class="spinner-sm" style="margin-bottom:15px; border-top-color:var(--accent-1);"></span>
+        <span>Initializing WhatsApp...</span>
+        <span style="font-size:0.8rem; margin-top:5px;">Please wait a moment.</span>
+      </div>
+    `;
+
+  return `
+    <div class="sm-modal-overlay visible" id="qr-modal-overlay" style="display: flex; align-items: center; justify-content: center; z-index: 10000;">
+      <div class="sm-modal sm-modal-sm" style="max-width: 400px; width: 90%; border-radius: 16px; background: var(--bg-2); border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); overflow: hidden; animation: sm-modal-in 0.3s ease;">
+        <div class="sm-modal-header" style="padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+          <h3 style="margin: 0; font-size: 1.2rem; color: var(--text-1); display: flex; align-items: center; gap: 8px;">
+            <span>📱</span> Connect WhatsApp
+          </h3>
+          <button class="sm-modal-close" id="qr-modal-close-btn" style="background: none; border: none; font-size: 1.5rem; color: var(--text-2); cursor: pointer; padding: 0; line-height: 1; transition: color 0.2s;">&times;</button>
+        </div>
+        <div class="sm-modal-body" style="padding: 24px; color: var(--text-1); font-family: inherit;">
+          <p style="margin: 0 0 20px 0; font-size: 0.95rem; line-height: 1.5; color: var(--text-2); text-align: center;">
+            Scan this QR code with WhatsApp to connect your school account and enable instant notifications.
+          </p>
+          
+          <div style="background: white; padding: 15px; border-radius: 12px; display: block; margin: 0 auto 20px auto; width: fit-content; box-shadow: 0 8px 16px rgba(0,0,0,0.2);">
+            ${qrImage}
+          </div>
+
+          <div class="qr-instructions" style="background: var(--bg-1); padding: 16px; border-radius: 10px; border: 1px solid var(--border);">
+            <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-1); font-weight: 600;">Instructions:</h4>
+            <ol style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: var(--text-2); line-height: 1.6;">
+              <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
+              <li>Tap <strong>Menu</strong> (Android) or <strong>Settings</strong> (iOS)</li>
+              <li>Select <strong>Linked Devices</strong> &rarr; <strong>Link a Device</strong></li>
+              <li>Point your phone camera to this screen to scan the QR code</li>
+            </ol>
+          </div>
+        </div>
+        <div class="sm-modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; background: var(--bg-1);">
+          <button type="button" class="sm-btn-cancel" id="qr-modal-cancel-btn" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; background: var(--bg-2); border: 1px solid var(--border); color: var(--text-1); transition: all 0.2s;">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// ─── Open WhatsApp QR Modal ──────────────────────────────────────────────────
+const openWhatsAppQrModal = (navigate, initialQrCode) => {
+  const container = document.getElementById('modal-container');
+  if (!container) return;
+
+  let currentQr = initialQrCode;
+  container.innerHTML = qrModalHTML(currentQr);
+
+  let pollingInterval = null;
+
+  const closeModal = () => {
+    if (pollingInterval) clearInterval(pollingInterval);
+    const overlay = document.getElementById('qr-modal-overlay');
+    if (overlay) overlay.classList.remove('visible');
+    container.innerHTML = '';
+  };
+
+  // Bind close buttons
+  document.getElementById('qr-modal-close-btn')?.addEventListener('click', closeModal);
+  document.getElementById('qr-modal-cancel-btn')?.addEventListener('click', closeModal);
+  document.getElementById('qr-modal-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'qr-modal-overlay') closeModal();
+  });
+
+  // Polling for status updates
+  pollingInterval = setInterval(async () => {
+    try {
+      const waStatus = await getWhatsAppStatus().catch(() => null);
+      if (!waStatus) return;
+
+      if (waStatus.isReady) {
+        clearInterval(pollingInterval);
+        closeModal();
+        showToast('🎉 WhatsApp connected successfully!', 'success', 5000);
+        renderDashboard(navigate);
+      } else if (waStatus.qrCode !== currentQr) {
+        currentQr = waStatus.qrCode;
+        container.innerHTML = qrModalHTML(currentQr);
+        
+        // Re-bind events since innerHTML was reset
+        document.getElementById('qr-modal-close-btn')?.addEventListener('click', closeModal);
+        document.getElementById('qr-modal-cancel-btn')?.addEventListener('click', closeModal);
+        document.getElementById('qr-modal-overlay')?.addEventListener('click', (e) => {
+          if (e.target.id === 'qr-modal-overlay') closeModal();
+        });
+      }
+    } catch (err) {
+      console.error('Error polling WhatsApp status:', err);
+    }
+  }, 2500);
+
+  // Esc key closes modal
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+};
+
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentGradeFilter = '';
 
@@ -196,7 +305,13 @@ export const renderDashboard = async (navigate) => {
 
   // Show WhatsApp warning if not ready
   if (waStatus && !waStatus.isReady) {
-    showToast('⚠️ WhatsApp is not connected. Scan the QR code in the server terminal.', 'warning', 8000);
+    showToast('⚠️ WhatsApp is not connected. <a href="#" id="toast-qr-link" style="color:#7a6cff; text-decoration:underline; font-weight:bold;">Click here to scan the QR code</a>.', 'warning', 10000);
+    setTimeout(() => {
+      document.getElementById('toast-qr-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        openWhatsAppQrModal(navigate, waStatus.qrCode);
+      });
+    }, 100);
   }
 
   // Count stats
@@ -350,6 +465,7 @@ export const renderDashboard = async (navigate) => {
         </div>
 
       </div>
+      <div id="modal-container"></div>
     </div>
   `;
 
@@ -384,7 +500,7 @@ export const renderDashboard = async (navigate) => {
     if (waStatus?.isReady) {
       showToast(waStatus?.statusMessage || 'WhatsApp is connected and running.', 'success');
     } else {
-      showToast(waStatus?.statusMessage || 'WhatsApp is not ready. Please scan the QR code in the server terminal.', 'warning', 5000);
+      openWhatsAppQrModal(navigate, waStatus?.qrCode);
     }
   });
   // ─── Bulk attendance wiring (only if class selected) ───────────────────────

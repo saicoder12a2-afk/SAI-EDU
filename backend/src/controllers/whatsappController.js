@@ -2,7 +2,7 @@ const { getStatus } = require('../whatsapp/client');
 
 // GET /api/whatsapp/status
 const getWhatsAppStatus = (req, res) => {
-  const { isReady, hasClient, isInitializing } = getStatus();
+  const { isReady, hasClient, isInitializing, qrCode } = getStatus();
 
   let statusMessage;
   let statusCode;
@@ -11,14 +11,16 @@ const getWhatsAppStatus = (req, res) => {
     statusMessage = 'WhatsApp is connected and ready to send messages.';
     statusCode    = 'connected';
   } else if (isInitializing) {
-    statusMessage = 'WhatsApp client is initializing. Please check the backend console for the QR code.';
+    statusMessage = qrCode 
+      ? 'WhatsApp is not connected. Scan the QR code in the popup to connect.'
+      : 'WhatsApp client is initializing. Generating QR code...';
     statusCode    = 'initializing';
   } else {
-    statusMessage = 'WhatsApp client is disconnected or not ready. Please scan the QR code in the server console.';
+    statusMessage = 'WhatsApp client is disconnected. Click to reconnect.';
     statusCode    = 'disconnected';
   }
 
-  res.json({ isReady, hasClient, isInitializing, statusCode, statusMessage });
+  res.json({ isReady, hasClient, isInitializing, statusCode, statusMessage, qrCode });
 };
 
 module.exports = { getWhatsAppStatus };

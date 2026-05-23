@@ -3,6 +3,7 @@ const qrcode = require('qrcode-terminal');
 
 let isWhatsAppReady = false;
 let client = null;
+let currentQrCode = null;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -28,24 +29,29 @@ const initializeWhatsApp = () => {
     console.log('\n📱 Scan this QR code with WhatsApp:\n');
     qrcode.generate(qr, { small: true });
     console.log('\n👉 Open WhatsApp → Settings → Linked Devices → Link a Device\n');
+    currentQrCode = qr;
   });
 
   client.on('ready', () => {
     isWhatsAppReady = true;
+    currentQrCode = null;
     console.log('✅ WhatsApp is connected and ready!');
   });
 
   client.on('authenticated', () => {
+    currentQrCode = null;
     console.log('🔐 Session authenticated (saved for next time)');
   });
 
   client.on('auth_failure', (msg) => {
+    currentQrCode = null;
     console.error('❌ Authentication failed:', msg);
     console.log('💡 Try deleting the .wwebjs_auth folder and scanning again.');
   });
 
   client.on('disconnected', (reason) => {
     isWhatsAppReady = false;
+    currentQrCode = null;
     console.log('❌ WhatsApp disconnected:', reason);
     console.log('🔄 Reconnecting in 10 seconds...');
     setTimeout(() => {
@@ -54,6 +60,7 @@ const initializeWhatsApp = () => {
   });
 
   client.initialize().catch(err => {
+    currentQrCode = null;
     console.error('❌ Failed to initialize WhatsApp client:', err);
   });
 };
@@ -118,6 +125,7 @@ const getStatus = () => {
     isReady: isWhatsAppReady,
     hasClient: !!client,
     isInitializing: !!client && !isWhatsAppReady,
+    qrCode: currentQrCode,
   };
 };
 
