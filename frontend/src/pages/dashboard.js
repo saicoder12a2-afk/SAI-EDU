@@ -382,9 +382,9 @@ export const renderDashboard = async (navigate) => {
   // WA badge click
   document.getElementById('wa-status-badge')?.addEventListener('click', () => {
     if (waStatus?.isReady) {
-      showToast('Meta WhatsApp API is configured and running.', 'success');
+      showToast(waStatus?.statusMessage || 'WhatsApp is connected and running.', 'success');
     } else {
-      showToast('Meta WhatsApp API credentials missing. Please set environment variables.', 'error', 5000);
+      showToast(waStatus?.statusMessage || 'WhatsApp is not ready. Please scan the QR code in the server terminal.', 'warning', 5000);
     }
   });
   // ─── Bulk attendance wiring (only if class selected) ───────────────────────
