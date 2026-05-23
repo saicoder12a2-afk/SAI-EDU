@@ -113,22 +113,29 @@ const isFresh = process.argv.includes('--fresh');
     { name: 'F Jeff Calvin',            grade: '12 CBSE', phone: '919994343045' },
     { name: 'T Uma Agatheeswari',       grade: '12 CBSE', phone: '919843023025' },
     { name: 'P Ariyan',                 grade: '12 CBSE', phone: '918248404019' },
+    // Custom Student
+    { name: 'sai nivesh', parent_name: 'TEST 1', grade: 'test 01', phone: '7603901199' },
   ];
 
   console.log('');
 
-  for (const { name, grade, phone } of STUDENTS) {
+  for (const { name, grade, phone, parent_name } of STUDENTS) {
     const existing = await db.prepare('SELECT id FROM students WHERE name = ? AND grade = ?').get(name, grade);
     if (existing) {
       console.log(`⏭️  Student already exists: ${name} (${grade})`);
       continue;
     }
 
-    await db.prepare(
-      'INSERT INTO students (name, grade, parent_whatsapp, teacher_id) VALUES (?, ?, ?, ?)'
-    ).run(name, grade, phone, defaultTeacherId);
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone;
+    }
 
-    console.log(`👦 Student created: ${name} (${grade}) | Phone: ${phone}`);
+    await db.prepare(
+      'INSERT INTO students (name, grade, parent_name, parent_whatsapp, teacher_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(name, grade, parent_name || 'Parent', cleanPhone, defaultTeacherId);
+
+    console.log(`👦 Student created: ${name} (${grade}) | Parent: ${parent_name || 'Parent'} | Phone: ${cleanPhone}`);
   }
 
   // ─── Summary ───────────────────────────────────────────────────────────────
