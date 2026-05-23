@@ -1,28 +1,41 @@
 FROM node:18-slim
 
+# Install system dependencies (build tools for native modules + Chromium for Puppeteer)
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-noto \
+    fonts-noto-cjk \
+    python3 \
+    make \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Puppeteer Chromium Environment
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV CHROMIUM_BIN=/usr/bin/chromium
+
 WORKDIR /app
 
-# Install build tools required for native modules like better-sqlite3.
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Copy package files first for caching
+COPY backend/package*.json ./backend/
+COPY frontend/package*.json ./frontend/
 
-# Copy entire backend and frontend directories early to ensure all files are available
-COPY backend ./backend
-COPY frontend ./frontend
-
-# Install backend dependencies
+# Install dependencies
 RUN cd backend && npm install --production
-
-# Install frontend dependencies
 RUN cd frontend && npm install
 
-# Remove build tools after dependencies are installed to keep the image smaller.
-RUN apt-get purge -y --auto-remove python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Copy all project files
+COPY backend ./backend
+COPY frontend ./frontend
 
 # Build frontend
 RUN cd frontend && npm run build
 
-# Create data directory for SQLite fallback
-RUN mkdir -p ./backend/data
+# Create data directory for SQLite fallback and auth storage
+RUN mkdir -p ./backend/data \
+    && mkdir -p ./backend/.wwebjs_auth
 
 WORKDIR /app/backend
 
